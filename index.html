@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>lottie-web 播放設定工具</title>
+    <link href="./bootstrap.min.css" rel="stylesheet" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.1/font/bootstrap-icons.min.css"
+    />
+    <style>
+      .preview {
+        width: 300px;
+        height: 300px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+    </style>
+  </head>
+  <body>
+    <main id="app">
+      <div class="container">
+        <div class="row pt-5">
+          <div class="col-3">
+            <input type="color" v-model="bgInput" />
+            <div
+              class="preview"
+              id="preview"
+              :style="{background: bgInput}"
+            ></div>
+
+            <template v-if="lottieElement">
+              <div>
+                <div class="my-3 d-flex align-items-center">
+                  <input
+                    class="form-range w-50"
+                    type="range"
+                    v-model="lottieObj.currentFrame"
+                    :disabled="!lottieElement"
+                    :max="newTotalFrames"
+                    @input="scrollBarSet"
+                  />
+                  <span class="ms-2">{{playStatus}}</span>
+                </div>
+
+                <div class="my-3 d-flex align-items-center">
+                  <button
+                    type="button"
+                    class="btn btn-lg btn-primary ms-2"
+                    @click="playControl"
+                  >
+                    <i
+                      class="bi bi-play-circle-fill"
+                      v-if="!lottieObj.isPlaying"
+                    ></i>
+                    <i class="bi bi-pause-circle-fill" v-else></i>
+                  </button>
+
+                  <button
+                    type="button"
+                    class="btn btn-lg btn-warning ms-2"
+                    @click="flagSet"
+                  >
+                    <i class="bi bi-flag"></i>
+                  </button>
+                </div>
+
+                <div class="my-3 d-flex align-items-center">
+                  <span class="me-2">偵數</span>
+                  <button
+                    type="button"
+                    class="btn btn-primary me-2"
+                    @click="lottieFrameSet('add')"
+                  >
+                    +1
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-primary"
+                    @click="lottieFrameSet('sub')"
+                  >
+                    -1
+                  </button>
+                </div>
+
+                <div class="row ms-1">
+                  <div class="form-check my-2 w-auto">
+                    <label class="form-check-label" for="inputAutoRun">
+                      自動播放
+                    </label>
+                    <input
+                      class="form-check-input"
+                      type="checkbox"
+                      v-model="lottieObj.autoplay"
+                      id="inputAutoRun"
+                    />
+                  </div>
+
+                  <div class="form-check my-2 w-auto">
+                    <label class="form-check-label" for="inputLoop">
+                      循環播放
+                    </label>
+                    <input
+                      class="form-check-input"
+                      type="checkbox"
+                      v-model="lottieObj.loop"
+                      id="inputLoop"
+                    />
+                  </div>
+                </div>
+
+                <div class="my-3 row align-items-center">
+                  <label for="inputSpeed" class="form-label col-auto mb-0"
+                    >速度</label
+                  >
+                  <input
+                    type="number"
+                    class="form-control w-50 col-auto"
+                    min="1"
+                    v-model="lottieObj.speed"
+                    @change="lottieSpeedSet"
+                  />
+                </div>
+
+                <div class="form-check my-2 w-auto">
+                  <label class="form-check-label" for="inputSetFrames">
+                    區間播放
+                  </label>
+                  <input
+                    class="form-check-input"
+                    type="checkbox"
+                    v-model="lottieObj.setFrames"
+                    id="inputSetFrames"
+                  />
+                </div>
+
+                <div class="my-3 row align-items-center">
+                  <label for="inputSpeed" class="form-label col-auto mb-0"
+                    >起始</label
+                  >
+                  <input
+                    type="number"
+                    class="form-control w-25 col-auto"
+                    min="1"
+                    v-model="lottieObj.frameStart"
+                    @change="lottieSpeedSet"
+                  />
+                  <label for="inputSpeed" class="form-label col-auto mb-0"
+                    >結束</label
+                  >
+                  <input
+                    type="number"
+                    class="form-control w-25 col-auto"
+                    :min="lottieObj.frameStart"
+                    v-model="lottieObj.frameEnd"
+                    @change="lottieSpeedSet"
+                  />
+                </div>
+              </div>
+            </template>
+          </div>
+
+          <div class="col-3">
+            <h4>已標註偵格</h4>
+            <ul class="list-group flex-row flex-wrap">
+              <li
+                class="list-group-item d-inline-block"
+                v-for="item in flagFrames"
+              >
+                <span>{{item}}</span>
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline-danger ms-4"
+                  @click="flagRemove(item)"
+                >
+                  <i class="bi bi-trash-fill"></i>
+                </button>
+              </li>
+            </ul>
+
+            <h4 class="mt-3">產生區段</h4>
+            <div class="btn-group" role="group">
+              <button
+                type="button"
+                class="btn btn-outline-primary"
+                v-for="item in autoInterval"
+                @click="intervalSet(item)"
+              >
+                <span>{{item}}</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="col-6">
+            <div class="nav-content">
+              <div class="my-3">
+                <label for="inputJson" class="form-label">JSON 檔路徑</label>
+                <input
+                  class="form-control"
+                  id="inputJson"
+                  v-model="jsonInput"
+                  placeholder="xxxxx.json"
+                />
+              </div>
+
+              <button
+                type="button"
+                class="btn btn-primary"
+                @click.prevent="load"
+              >
+                <i class="bi bi-filetype-json"></i>
+                載入
+              </button>
+
+              <div class="my-3">
+                <label for="inputJson" class="form-label">DOM 選擇器</label>
+                <input class="form-control" id="domInput" v-model="domInput" />
+              </div>
+
+              <h5 class="my-3">javascript</h5>
+
+              <div class="preview-js">
+                <pre>{{previewJs}}</pre>
+              </div>
+
+              <button
+                type="button"
+                class="btn btn-outline-success"
+                @click="jsCopy"
+                v-show="previewJs"
+              >
+                <i class="bi bi-copy"></i> 複製
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+    <script src="./vue.global.js"></script>
+    <script src="./bootstrap.min.js"></script>
+    <script src="./lottie.min.js"></script>
+    <script>
+      const { createApp } = Vue;
+
+      createApp({
+        data() {
+          return {
+            bgInput: "#000",
+            jsonType: "url",
+            jsonInput:
+              "https://lottie.host/161d59dc-00cd-41a9-b99c-3c1c3d596b21/J711OiTKEW.json",
+            domInput: "#preview",
+            lottieElement: null,
+            lottieObj: {
+              frameStart: 0,
+              frameEnd: 0,
+              setFrames: false,
+              isPlaying: false,
+              autoplay: true,
+              speed: 0,
+              loop: true,
+              direction: 0,
+              totalFrames: 0,
+              currentFrame: 0,
+            },
+            flagFrames: [],
+            isThrottled: false,
+          };
+        },
+        methods: {
+          load() {
+            const _ = this;
+            _.lottieLoad();
+          },
+          lottieDestroy() {
+            const _ = this;
+            _.lottieElement.destroy();
+            _.lottieElement = null;
+          },
+          lottieLoad() {
+            const _ = this;
+
+            // 如果已載入過就先銷毀
+            if (_.lottieElement) _.lottieDestroy();
+
+            _.lottieElement = lottie.loadAnimation({
+              container: document.querySelector("#preview"),
+              renderer: "svg",
+              loop: true,
+              autoplay: false,
+              path: _.jsonInput,
+            });
+
+            _.lottieElement.addEventListener("config_ready", function () {
+              const { playSpeed, playDirection, totalFrames } = _.lottieElement; // 總幀數
+              _.lottieObj.speed = playSpeed; // 播放速度
+              _.lottieObj.totalFrames = totalFrames; // 總幀數
+              _.lottieObj.direction = playDirection; // 播放方向
+            });
+
+            _.lottieElement.onEnterFrame = function () {
+              const { currentFrame } = _.lottieElement;
+              _.lottieUpdateFrame(currentFrame); // 播放時更新當前幀數
+            };
+          },
+          lottieFrameSet(type) {
+            const _ = this;
+            if (type === "add" && _.lottieObj.currentFrame < _.newTotalFrames)
+              // 當前幀數小於總幀數
+              _.lottieObj.currentFrame += 1;
+            else if (type === "sub" && _.lottieObj.currentFrame > 0)
+              // 當前幀數大於0
+              _.lottieObj.currentFrame -= 1;
+            else return;
+
+            _.lottieGotoFrame(_.lottieObj.currentFrame); // 跳轉到指定幀數
+          },
+          lottieGotoFrame(frame) {
+            const _ = this;
+            _.lottieElement.goToAndStop(parseInt(frame), true);
+          },
+          lottieSpeedSet() {
+            const _ = this;
+            _.lottieElement.setSpeed(_.lottieObj.speed);
+          },
+          lottiePlay() {
+            const _ = this;
+
+            if (!_.lottieObj.setFrames)
+              _.lottieElement.play(); // 沒有設定區間播放
+            else
+              _.lottieElement.playSegments(
+                [_.lottieObj.frameStart, _.lottieObj.frameEnd],
+                true
+              ); // 設定區間播放
+
+            _.lottieObj.isPlaying = true;
+          },
+          lottiePause() {
+            const _ = this;
+            _.lottieElement.pause();
+            _.lottieObj.isPlaying = false;
+            const { currentFrame } = _.lottieElement;
+            _.lottieUpdateFrame(currentFrame); // 暫停時更新當前幀數
+          },
+          lottieUpdateFrame(currentTime) {
+            const _ = this;
+            _.lottieObj.currentFrame = Math.round(currentTime); // 四捨五入取整數
+          },
+          playControl() {
+            const _ = this;
+            if (_.lottieObj.isPlaying) _.lottiePause();
+            else _.lottiePlay();
+          },
+          scrollBarSet() {
+            const _ = this;
+            if (_.lottieObj.isPlaying) return; // 播放時不能調整進度，避免重複觸發
+            _.lottieGotoFrame(_.lottieObj.currentFrame);
+          },
+          flagSet() {
+            const _ = this;
+            if (_.flagFrames.includes(_.lottieObj.currentFrame)) return; // 已存在就不新增
+            _.flagFrames.push(_.lottieObj.currentFrame);
+          },
+          flagRemove(frame) {
+            const _ = this;
+            _.flagFrames = _.flagFrames.filter((item) => item !== frame); // 移除指定幀數
+          },
+          intervalSet(arr) {
+            const _ = this;
+            _.lottiePause();
+            _.lottieObj.setFrames = true;
+            _.lottieObj.frameStart = arr[0];
+            _.lottieObj.frameEnd = arr[1];
+          },
+          jsCopy() {
+            const _ = this;
+            const el = document.createElement("textarea");
+            el.value = _.previewJs;
+            document.body.appendChild(el);
+            el.select();
+            document.execCommand("copy");
+            document.body.removeChild(el);
+          },
+        },
+        computed: {
+          autoInterval() {
+            const _ = this;
+            if (_.flagFrames.length < 2) return [];
+            _.flagFrames.sort((a, b) => a - b);
+            return _.flagFrames.reduce((result, currentValue, index) => {
+              const subArrays = _.flagFrames
+                .slice(index + 1)
+                .map((item) => [currentValue, item]);
+              return result.concat(subArrays);
+            }, []);
+          },
+          newTotalFrames() {
+            const _ = this;
+            if (
+              _.lottieObj.setFrames &&
+              _.lottieObj.frameStart > 0 &&
+              _.lottieObj.frameEnd > 0
+            )
+              return _.lottieObj.frameEnd - _.lottieObj.frameStart;
+            else if (_.lottieObj.setFrames && _.lottieObj.frameStart > 0)
+              return _.lottieObj.frameStart;
+            else return _.lottieObj.totalFrames;
+          },
+          playStatus() {
+            const _ = this;
+            if (
+              _.lottieObj.setFrames &&
+              _.lottieObj.frameStart > 0 &&
+              _.lottieObj.frameEnd > 0
+            )
+              return `${_.lottieObj.currentFrame} / ${
+                _.lottieObj.frameEnd - _.lottieObj.frameStart
+              }`;
+            else if (_.lottieObj.setFrames && _.lottieObj.frameStart > 0)
+              return `${_.lottieObj.currentFrame} / ${_.lottieObj.frameStart}`;
+            else
+              return `${_.lottieObj.currentFrame} / ${_.lottieObj.totalFrames}`;
+          },
+          previewJs() {
+            const _ = this;
+            let _js = "";
+            let _options = "";
+
+            if (_.lottieElement) {
+              _js += `
+const lottieEle = lottie.loadAnimation({
+  container: document.querySelector('${_.domInput}'),
+  renderer: 'svg',
+  loop: ${_.lottieObj.loop},
+  autoplay: ${_.lottieObj.autoplay},
+  path: '${_.jsonInput}'
+});
+`;
+            }
+
+            if (_.lottieObj.speed && _.lottieObj.speed > 1) {
+              _options += `\n  lottieEle.setSpeed(${_.lottieObj.speed});`;
+            }
+
+            if (
+              _.lottieObj.setFrames &&
+              _.lottieObj.frameStart > 0 &&
+              _.lottieObj.frameEnd > 0
+            )
+              _options += `\n  lottieEle.playSegments([${_.lottieObj.frameStart}, ${_.lottieObj.frameEnd}], true);`;
+            else if (_.lottieObj.setFrames && _.lottieObj.frameStart > 0)
+              _options += `\n  lottieEle.goToAndStop(${_.lottieObj.frameStart}, true);`;
+            else if (!_.lottieObj.autoplay)
+              _options += `\n  //沒有自動播放手動播放\n  lottieEle.play();`;
+
+            if (_options)
+              _js += `\nlottieEle.addEventListener("config_ready", function(){${_options}\n});`;
+            return _js.trim();
+          },
+        },
+      }).mount("#app");
+    </script>
+  </body>
+</html>
