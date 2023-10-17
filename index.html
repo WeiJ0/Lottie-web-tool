@@ -452,7 +452,7 @@ const lottieEle = lottie.loadAnimation({
             )
               _options += `\n  lottieEle.playSegments([${_.lottieObj.frameStart}, ${_.lottieObj.frameEnd}], true);`;
             else if (_.lottieObj.setFrames && _.lottieObj.frameStart > 0)
-              _options += `\n  lottieEle.goToAndStop(${_.lottieObj.frameStart}, true);`;
+              _options += `\n  lottieEle.goToAndPlay(${_.lottieObj.frameStart}, true);`;
             else if (!_.lottieObj.autoplay)
               _options += `\n  //沒有自動播放手動播放\n  lottieEle.play();`;
 
